@@ -1,127 +1,139 @@
 // test/RealDigital.js
-const {
-  time,
-  loadFixture,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 
-describe("Lock", function () {
-  // We define a fixture to reuse the same setup in every test.
-  // We use loadFixture to run this setup once, snapshot that state,
-  // and reset Hardhat Network to that snapshot in every test.
-  async function deployOneYearLockFixture() {
-    const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-    const ONE_GWEI = 1_000_000_000;
+describe("RealDigital", function () {
+  let RealDigital, realDigital, admin, minterAndBurner, addrs;
 
-    const lockedAmount = ONE_GWEI;
-    const unlockTime = (await time.latest()) + ONE_YEAR_IN_SECS;
+  beforeEach(async function () {
+    addrs = await ethers.getSigners();
+    RealDigital = await ethers.getContractFactory("RealDigital");
 
-    // Contracts are deployed using the first signer/account by default
-    const [owner, otherAccount] = await ethers.getSigners();
+    admin = addrs[0];
+    minterAndBurner = addrs[1];
 
-    const Lock = await ethers.getContractFactory("Lock");
-    const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+    realDigital = await RealDigital.deploy(
+      "RealDigital",
+      "RD",
+      admin.address
+    );
 
-    return { lock, unlockTime, lockedAmount, owner, otherAccount };
-  }
+    await realDigital.deployed();
+
+    await realDigital.grantRole(realDigital.MINTER_ROLE(), minterAndBurner.address);
+    await realDigital.grantRole(realDigital.BURNER_ROLE(), minterAndBurner.address);
+  });
+
 
   describe("Deployment", function () {
-    it("Should set the right unlockTime", async function () {
-      const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
-
-      expect(await lock.unlockTime()).to.equal(unlockTime);
+    it("Should set the right admin", async function () {
+      const role = await realDigital.DEFAULT_ADMIN_ROLE();
+      const hasRole = await realDigital.hasRole(role, admin.address);
+      expect(hasRole).to.equal(true);
     });
 
-    it("Should set the right owner", async function () {
-      const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-
-      expect(await lock.owner()).to.equal(owner.address);
-    });
-
-    it("Should receive and store the funds to lock", async function () {
-      const { lock, lockedAmount } = await loadFixture(
-        deployOneYearLockFixture
-      );
-
-      expect(await ethers.provider.getBalance(lock.target)).to.equal(
-        lockedAmount
-      );
-    });
-
-    it("Should fail if the unlockTime is not in the future", async function () {
-      // We don't use the fixture here because we want a different deployment
-      const latestTime = await time.latest();
-      const Lock = await ethers.getContractFactory("Lock");
-      await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-        "Unlock time should be in the future"
-      );
+    it("Should set the right burner and minter", async function () {
+      expect(await realDigital.hasRole(ethers.utils.id("BURNER_ROLE"), minterAndBurner.address)).to.equal(true);
+      expect(await realDigital.hasRole(ethers.utils.id("MINTER_ROLE"), minterAndBurner.address)).to.equal(true);
     });
   });
 
-  describe("Withdrawals", function () {
-    describe("Validations", function () {
-      it("Should revert with the right error if called too soon", async function () {
-        const { lock } = await loadFixture(deployOneYearLockFixture);
+  describe("Minting", function () {
+    it("Should mint new tokens", async function () {
+      const amount = ethers.utils.parseEther("100");
 
-        await expect(lock.withdraw()).to.be.revertedWith(
-          "You can't withdraw yet"
-        );
-      });
+      await realDigital.connect(minterAndBurner).mint(minterAndBurner.address, amount);
 
-      it("Should revert with the right error if called from another account", async function () {
-        const { lock, unlockTime, otherAccount } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // We can increase the time in Hardhat Network
-        await time.increaseTo(unlockTime);
-
-        // We use lock.connect() to send a transaction from another account
-        await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-          "You aren't the owner"
-        );
-      });
-
-      it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-        const { lock, unlockTime } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // Transactions are sent using the first signer by default
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).not.to.be.reverted;
-      });
-    });
-
-    describe("Events", function () {
-      it("Should emit an event on withdrawals", async function () {
-        const { lock, unlockTime, lockedAmount } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw())
-          .to.emit(lock, "Withdrawal")
-          .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-      });
-    });
-
-    describe("Transfers", function () {
-      it("Should transfer the funds to the owner", async function () {
-        const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).to.changeEtherBalances(
-          [owner, lock],
-          [lockedAmount, -lockedAmount]
-        );
-      });
+      const balance = await realDigital.balanceOf(minterAndBurner.address);
+      expect(balance).to.equal(amount);
     });
   });
+
+  describe("Burning", function () {
+    it("Should burn tokens", async function () {
+      const burnAmount = ethers.utils.parseEther("50");
+
+      await realDigital.connect(minterAndBurner).mint(minterAndBurner.address, ethers.utils.parseEther("100"));
+
+      await realDigital.connect(minterAndBurner).burn(burnAmount);
+
+      const balanceAfterBurn = await realDigital.balanceOf(minterAndBurner.address);
+      expect(balanceAfterBurn).to.equal(ethers.utils.parseEther("50"));
+    });
+  });
+
+  // Account Management
+  describe("Account Management", function () {
+    it("Should disable an account", async function () {
+      // Enable account first
+      await realDigital.connect(admin).enableAccount(addrs[2].address);
+      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(true);
+
+      // Disable account
+      await realDigital.connect(admin).disableAccount(addrs[2].address);
+      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(false);
+    });
+
+    it("Should enable an account", async function () {
+      // Ensure account is disabled first
+      await realDigital.connect(admin).disableAccount(addrs[2].address);
+      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(false);
+
+      // Enable account
+      await realDigital.connect(admin).enableAccount(addrs[2].address);
+      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(true);
+    });
+  });
+
+  // Frozen Balances
+  describe("Frozen Balances", function () {
+    it("Should increase the frozen balance", async function () {
+      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("50"));
+      expect(await realDigital.frozenBalanceOf(addrs[2].address)).to.equal(ethers.utils.parseEther("50"));
+    });
+
+    it("Should decrease the frozen balance", async function () {
+      // Increase balance first
+      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("50"));
+      // Decrease balance
+      await realDigital.connect(admin).decreaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("25"));
+      expect(await realDigital.frozenBalanceOf(addrs[2].address)).to.equal(ethers.utils.parseEther("25"));
+    });
+  });
+
+  // Transfers
+  describe("Transfers", function () {
+    it("Should reject transfer from a disabled account", async function () {
+      // Ensure account is disabled
+      await realDigital.connect(admin).disableAccount(addrs[2].address);
+
+      // Attempt to transfer
+      await expect(
+        realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("10"))
+      ).to.be.revertedWith("Sender account is disabled");
+    });
+
+    it("Should reject transfer if amount exceeds available balance after accounting for frozen balance", async function () {
+      // Ensure account is enabled and has enough tokens
+      await realDigital.connect(admin).enableAccount(addrs[2].address);
+      await realDigital.connect(minterAndBurner).mint(addrs[2].address, ethers.utils.parseEther("100"));
+      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("75"));
+
+      // Attempt to transfer
+      await expect(
+        realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("50"))
+      ).to.be.revertedWith("Transfer amount exceeds available balance");
+    });
+
+    it("Should transfer tokens correctly", async function () {
+      // Ensure account is enabled and has enough tokens
+      await realDigital.connect(admin).enableAccount(addrs[2].address);
+      await realDigital.connect(minterAndBurner).mint(addrs[2].address, ethers.utils.parseEther("100"));
+      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("25"));
+
+      // Transfer tokens
+      await realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("50"));
+      expect(await realDigital.balanceOf(addrs[3].address)).to.equal(ethers.utils.parseEther("50"));
+    });
+  });
+
 });
