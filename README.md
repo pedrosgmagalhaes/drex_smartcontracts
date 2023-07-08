@@ -1,12 +1,10 @@
 # RealDigital Smart Contract
 
-This repository contains the Solidity smart contract implementation for Real Digital, a Central Bank Digital Currency (CBDC). Real Digital is an ERC20 token that provides functionalities for minting, transferring, burning, freezing, and checking balances.
+Digital, a Central Bank Digital Currency (CBDC). Real Digital is a conceptual ERC20 token that provides functionalities for minting, transferring, burning, freezing, and checking balances.
 
 **Note: This smart contract is a simulated implementation based on the provided ABI from Bacen (Central Bank). It is intended for educational and illustrative purposes only and should not be used in a production environment.**
 
-Please be aware that this implementation does not connect to any real-world systems or interact with the Bacen Central Bank. It is solely a demonstration of how the smart contract functions could be implemented based on the provided ABI.
-
-It is important to exercise caution and conduct thorough testing and auditing before deploying any smart contract in a live environment. Always consult with legal and regulatory experts to ensure compliance with applicable laws and regulations.
+Please exercise extreme caution, and conduct thorough testing, and auditing before deploying any smart contract in a live environment. Always consult with legal and regulatory experts to ensure compliance with all applicable laws and regulations.
 
 For the official implementation of a Central Bank Digital Currency (CBDC) or any financial system, please refer to the authoritative sources provided by the Bacen or relevant regulatory bodies.
 
@@ -95,7 +93,4 @@ This project is licensed under the MIT License. See the LICENSE file for more in
 ## Credits
 This RealDigital smart contract is developed by Pedro Magalhaes and Iora Labs.
 
-Iora Labs is a leading blockchain services provider that specializes in custom blockchain development, smart contract development, decentralized applications (DApps)
-
-
-This repository contains the Solidity smart contract implementation for Real Digital, a Central Bank Digital Currency (CBDC). Real Digital is an ERC20 token that provides functionalities for minting, transferring, burning, freezing, and checking balances.
+Iora Labs is a leading blockchain services provider that specializes in custom blockchain development, smart contract development, and decentralized applications (DApps).
