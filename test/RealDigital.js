@@ -128,11 +128,11 @@ describe("RealDigital", function () {
       // Ensure account is enabled and has enough tokens
       await realDigital.connect(admin).enableAccount(addrs[2].address);
       await realDigital.connect(minterAndBurner).mint(addrs[2].address, ethers.utils.parseEther("100"));
-      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("25"));
+      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("50"));
 
       // Transfer tokens
-      await realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("50"));
-      expect(await realDigital.balanceOf(addrs[3].address)).to.equal(ethers.utils.parseEther("50"));
+      await realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("20"));
+      expect(await realDigital.balanceOf(addrs[3].address)).to.equal(ethers.utils.parseEther("20"));
     });
   });
 

@@ -72,7 +72,7 @@ contract RealDigital is ERC20, ERC20Burnable, AccessControl, Pausable {
             "Sender account is disabled"
         );
         require(
-            _frozenBalances[_msgSender()] < amount,
+            availableBalanceOf(_msgSender()) >= amount,
             "Transfer amount exceeds available balance"
         );
         return super.transfer(recipient, amount);
@@ -88,7 +88,7 @@ contract RealDigital is ERC20, ERC20Burnable, AccessControl, Pausable {
             "Sender account is disabled"
         );
         require(
-            _frozenBalances[sender] < amount,
+            availableBalanceOf(sender) >= amount,
             "Transfer amount exceeds available balance"
         );
         return super.transferFrom(sender, recipient, amount);
@@ -124,6 +124,10 @@ contract RealDigital is ERC20, ERC20Burnable, AccessControl, Pausable {
             "Caller is not authorized to unpause"
         );
         _unpause();
+    }
+
+    function availableBalanceOf(address account) public view returns (uint256) {
+        return balanceOf(account) - frozenBalanceOf(account);
     }
 
     function frozenBalanceOf(address account) public view returns (uint256) {
