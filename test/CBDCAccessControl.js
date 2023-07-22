@@ -5,14 +5,14 @@ const {
 } = require("@nomicfoundation/hardhat-network-helpers");
 
 const deploy = async () => {
-    const CBCDAccessControl = await ethers.getContractFactory("CBCDAccessControl");
+    const CBCDAccessControl = await ethers.getContractFactory("CBDCAccessControl");
     [admin, authority, testAccount] = await ethers.getSigners();
     const accessControl = await CBCDAccessControl.deploy(authority.address, admin.address);
     await accessControl.deployed();
     return { accessControl, admin, authority, testAccount };
 }
 
-describe("CBCDAccessControl", function () {
+describe("CBDCAccessControl", function () {
   let accessControl;
   let admin;
   let authority;
