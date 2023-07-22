@@ -1,138 +1,183 @@
-// test/RealDigital.js
+// test/real.js
 const { expect } = require("chai");
+const { ethers } = require("hardhat");
+const {
+  loadFixture,
+} = require("@nomicfoundation/hardhat-network-helpers");
+const { parseReal, formatReal } = require("../util/parseFormatReal");
+const { REAL_NAME, REAL_SYMBOL } = require("../util/constants");
+const { getRoleError } = require("../util/roles");
 
-describe("RealDigital", function () {
-  let RealDigital, realDigital, admin, minterAndBurner, addrs;
+const MINT_AMOUNT = parseReal("100");
+const FREEZE_AMOUNT = parseReal("50");
 
-  beforeEach(async function () {
-    addrs = await ethers.getSigners();
-    RealDigital = await ethers.getContractFactory("RealDigital");
-
-    admin = addrs[0];
-    minterAndBurner = addrs[1];
-
-    realDigital = await RealDigital.deploy(
-      "RealDigital",
-      "RD",
+const deploy = async () => {
+    const RealDigital = await ethers.getContractFactory("RealDigital");
+    [admin, authority, authorizedSender, authorizedRecipient, unauthorizedAccount] = await ethers.getSigners();
+    const real = await RealDigital.deploy(
+      REAL_NAME,
+      REAL_SYMBOL,
+      authority.address,
       admin.address
     );
+    await real.deployed();
+    return { real, admin, authority, authorizedSender, authorizedRecipient, unauthorizedAccount };
+}
 
-    await realDigital.deployed();
+const deployMintTokens = async () => {
+  const { real, admin, authority, authorizedSender, authorizedRecipient, unauthorizedAccount } = await deploy();
 
-    await realDigital.grantRole(realDigital.MINTER_ROLE(), minterAndBurner.address);
-    await realDigital.grantRole(realDigital.BURNER_ROLE(), minterAndBurner.address);
-  });
+  await real.connect(authority).enableAccount(authority.address);
+  await real.connect(authority).enableAccount(authorizedSender.address);
+  await real.connect(authority).enableAccount(authorizedRecipient.address);
 
+  await real.connect(authority).mint(authority.address, MINT_AMOUNT);
+  expect(await real.balanceOf(authority.address)).to.equal(MINT_AMOUNT);
+
+  await real.connect(authority).mint(authorizedSender.address, MINT_AMOUNT);
+  expect(await real.balanceOf(authorizedSender.address)).to.equal(MINT_AMOUNT);
+
+  return { real, admin, authority, authorizedSender, authorizedRecipient, unauthorizedAccount };
+}
+
+const deployMintAndFreezeTokens = async () => {
+  const { real, admin, authority, authorizedSender, authorizedRecipient, unauthorizedAccount } = await deployMintTokens();
+  await real.connect(authority).increaseFrozenBalance(authorizedSender.address, FREEZE_AMOUNT);
+  return { real, admin, authority, authorizedSender, authorizedRecipient, unauthorizedAccount };
+}
+
+
+describe("RealDigital", function () {
 
   describe("Deployment", function () {
-    it("Should set the right admin", async function () {
-      const role = await realDigital.DEFAULT_ADMIN_ROLE();
-      const hasRole = await realDigital.hasRole(role, admin.address);
-      expect(hasRole).to.equal(true);
+    it("Should set the correct roles", async function () {
+      const { real, admin, authority } = await deploy();
+      expect(await real.hasRole(await real.DEFAULT_ADMIN_ROLE(), admin.address)).to.equal(true);
+      expect(await real.hasRole(await real.BURNER_ROLE(), authority.address)).to.equal(true);
+      expect(await real.hasRole(await real.MINTER_ROLE(), authority.address)).to.equal(true);
+      expect(await real.hasRole(await real.PAUSER_ROLE(), authority.address)).to.equal(true);
+      expect(await real.hasRole(await real.MOVER_ROLE(), authority.address)).to.equal(true);
+      expect(await real.hasRole(await real.ACCESS_ROLE(), authority.address)).to.equal(true);
+      expect(await real.hasRole(await real.FREEZER_ROLE(), authority.address)).to.equal(true);
     });
 
-    it("Should set the right burner and minter", async function () {
-      expect(await realDigital.hasRole(ethers.utils.id("BURNER_ROLE"), minterAndBurner.address)).to.equal(true);
-      expect(await realDigital.hasRole(ethers.utils.id("MINTER_ROLE"), minterAndBurner.address)).to.equal(true);
+    it("Should set the correct name and symbol", async function () {
+      const { real } = await loadFixture(deploy);
+      expect(await real.name()).to.equal(REAL_NAME);
+      expect(await real.symbol()).to.equal(REAL_SYMBOL);
     });
   });
 
   describe("Minting", function () {
-    it("Should mint new tokens", async function () {
-      const amount = ethers.utils.parseEther("100");
+    it("Authority should be able to mint new tokens", async function () {
+      const { real, authority, authorizedRecipient } = await loadFixture(deploy);
+      await real.connect(authority).mint(authorizedRecipient.address, MINT_AMOUNT);
+      expect(await real.balanceOf(authorizedRecipient.address)).to.equal(MINT_AMOUNT);
+    });
 
-      await realDigital.connect(minterAndBurner).mint(minterAndBurner.address, amount);
-
-      const balance = await realDigital.balanceOf(minterAndBurner.address);
-      expect(balance).to.equal(amount);
+    it("Non-authority should not be able to mint new tokens", async function () {
+      const { real, authorizedRecipient } = await loadFixture(deploy);
+      await expect(
+        real.connect(authorizedRecipient).mint(authorizedRecipient.address, MINT_AMOUNT)
+      ).to.be.revertedWith(getRoleError(authorizedRecipient.address, "MINTER_ROLE"));
     });
   });
 
   describe("Burning", function () {
-    it("Should burn tokens", async function () {
-      const burnAmount = ethers.utils.parseEther("50");
+    it("Authority should be able to burn tokens", async function () {
+      const { real, authority } = await loadFixture(deployMintTokens);
+      expect(await real.balanceOf(authority.address)).to.equal(MINT_AMOUNT);
+      await real.connect(authority).burn(MINT_AMOUNT);
+      expect(await real.balanceOf(authority.address)).to.equal(0);
+    });
 
-      await realDigital.connect(minterAndBurner).mint(minterAndBurner.address, ethers.utils.parseEther("100"));
-
-      await realDigital.connect(minterAndBurner).burn(burnAmount);
-
-      const balanceAfterBurn = await realDigital.balanceOf(minterAndBurner.address);
-      expect(balanceAfterBurn).to.equal(ethers.utils.parseEther("50"));
+    it("Non-authority should not be able to burn tokens", async function () {
+      const { real, unauthorizedAccount } = await loadFixture(deployMintTokens);
+      await expect(
+        real.connect(unauthorizedAccount).burn(MINT_AMOUNT)
+      ).to.be.revertedWith(getRoleError(unauthorizedAccount.address, "BURNER_ROLE"));
     });
   });
 
   // Account Management
   describe("Account Management", function () {
-    it("Should disable an account", async function () {
-      // Enable account first
-      await realDigital.connect(admin).enableAccount(addrs[2].address);
-      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(true);
-
-      // Disable account
-      await realDigital.connect(admin).disableAccount(addrs[2].address);
-      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(false);
+    it("Authority should be able to enable and disable an account", async function () {
+      const { real, authority, unauthorizedAccount } = await loadFixture(deploy);
+      expect(await real.authorizedAccounts(unauthorizedAccount.address)).to.equal(false);
+      await real.connect(authority).enableAccount(unauthorizedAccount.address);
+      expect(await real.authorizedAccounts(unauthorizedAccount.address)).to.equal(true);
+      await real.connect(authority).disableAccount(unauthorizedAccount.address);
+      expect(await real.authorizedAccounts(unauthorizedAccount.address)).to.equal(false);
     });
 
-    it("Should enable an account", async function () {
-      // Ensure account is disabled first
-      await realDigital.connect(admin).disableAccount(addrs[2].address);
-      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(false);
-
-      // Enable account
-      await realDigital.connect(admin).enableAccount(addrs[2].address);
-      expect(await realDigital.authorizedAccount(addrs[2].address)).to.equal(true);
+    it("Non-authority should not be able to enable and disable an account", async function () {
+      const { real, unauthorizedAccount } = await loadFixture(deploy);
+      await expect(
+        real.connect(unauthorizedAccount).enableAccount(unauthorizedAccount.address)
+      ).to.be.revertedWith(getRoleError(unauthorizedAccount.address, "ACCESS_ROLE"));
+      await expect(
+        real.connect(unauthorizedAccount).disableAccount(unauthorizedAccount.address)
+      ).to.be.revertedWith(getRoleError(unauthorizedAccount.address, "ACCESS_ROLE"));
     });
   });
 
   // Frozen Balances
   describe("Frozen Balances", function () {
-    it("Should increase the frozen balance", async function () {
-      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("50"));
-      expect(await realDigital.frozenBalanceOf(addrs[2].address)).to.equal(ethers.utils.parseEther("50"));
+    it("Authority should be able to freeze balance of account", async function () {
+      const { real, authority, authorizedSender } = await loadFixture(deployMintTokens);
+      await real.connect(authority).increaseFrozenBalance(authorizedSender.address, FREEZE_AMOUNT);
+      expect(await real.frozenBalanceOf(authorizedSender.address)).to.equal(FREEZE_AMOUNT);
     });
 
-    it("Should decrease the frozen balance", async function () {
-      // Increase balance first
-      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("50"));
-      // Decrease balance
-      await realDigital.connect(admin).decreaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("25"));
-      expect(await realDigital.frozenBalanceOf(addrs[2].address)).to.equal(ethers.utils.parseEther("25"));
+    it("Non-authority should not be able to freeze balance of account", async function () {
+      const { real, authorizedSender } = await loadFixture(deployMintTokens);
+      await expect(
+        real.connect(authorizedSender).increaseFrozenBalance(authorizedSender.address, FREEZE_AMOUNT)
+      ).to.be.revertedWith(getRoleError(authorizedSender.address, "FREEZER_ROLE"));
+    });
+
+    it("Authority should be able to unfreeze balance of account", async function () {
+      const { real, authority, authorizedSender } = await loadFixture(deployMintAndFreezeTokens);
+      await real.connect(authority).decreaseFrozenBalance(authorizedSender.address, FREEZE_AMOUNT);
+      expect(await real.frozenBalanceOf(authorizedSender.address)).to.equal(0);
+    });
+
+    it("Non-authority should not be able to unfreeze balance of account", async function () {
+      const { real, authorizedSender } = await loadFixture(deployMintAndFreezeTokens);
+      await expect(
+        real.connect(authorizedSender).decreaseFrozenBalance(authorizedSender.address, FREEZE_AMOUNT)
+      ).to.be.revertedWith(getRoleError(authorizedSender.address, "FREEZER_ROLE"));
     });
   });
 
   // Transfers
   describe("Transfers", function () {
-    it("Should reject transfer from a disabled account", async function () {
-      // Ensure account is disabled
-      await realDigital.connect(admin).disableAccount(addrs[2].address);
-
-      // Attempt to transfer
+    it("Should reject transfer to and from a disabled account", async function () {
+      const { real, authorizedSender, unauthorizedAccount } = await loadFixture(deployMintTokens);
       await expect(
-        realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("10"))
-      ).to.be.revertedWith("Sender account is disabled");
+        real.connect(authorizedSender).transfer(unauthorizedAccount.address, ethers.utils.parseEther("1"))
+      ).to.be.revertedWith("CBDCAccessControl: Both from and to accounts must be authorized");
+      await expect(
+        real.connect(unauthorizedAccount).transfer(authorizedSender.address, ethers.utils.parseEther("1"))
+      ).to.be.revertedWith("CBDCAccessControl: Both from and to accounts must be authorized");
     });
 
     it("Should reject transfer if amount exceeds available balance after accounting for frozen balance", async function () {
-      // Ensure account is enabled and has enough tokens
-      await realDigital.connect(admin).enableAccount(addrs[2].address);
-      await realDigital.connect(minterAndBurner).mint(addrs[2].address, ethers.utils.parseEther("100"));
-      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("75"));
-
-      // Attempt to transfer
+      const { real, authorizedSender, authorizedRecipient } = await loadFixture(deployMintAndFreezeTokens);
+      const availableAmount = (await real.balanceOf(authorizedSender.address)).sub(await real.frozenBalanceOf(authorizedSender.address));
       await expect(
-        realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("50"))
-      ).to.be.revertedWith("Transfer amount exceeds available balance");
+        real.connect(authorizedSender).transfer(authorizedRecipient.address, availableAmount.add(1))
+      ).to.be.revertedWith("RealDigital: Insufficient liquid balance");
     });
 
-    it("Should transfer tokens correctly", async function () {
-      // Ensure account is enabled and has enough tokens
-      await realDigital.connect(admin).enableAccount(addrs[2].address);
-      await realDigital.connect(minterAndBurner).mint(addrs[2].address, ethers.utils.parseEther("100"));
-      await realDigital.connect(admin).increaseFrozenBalance(addrs[2].address, ethers.utils.parseEther("50"));
-
-      // Transfer tokens
-      await realDigital.connect(addrs[2]).transfer(addrs[3].address, ethers.utils.parseEther("20"));
-      expect(await realDigital.balanceOf(addrs[3].address)).to.equal(ethers.utils.parseEther("20"));
+    it("Should allow transfer if amount does not exceed available balance after accounting for frozen balance", async function () {
+      const { real, authorizedSender, authorizedRecipient } = await loadFixture(deployMintAndFreezeTokens);
+      const totalBalance = await real.balanceOf(authorizedSender.address);
+      const frozenBalance = await real.frozenBalanceOf(authorizedSender.address);
+      const availableAmount = totalBalance.sub(frozenBalance);
+      await real.connect(authorizedSender).transfer(authorizedRecipient.address, availableAmount);
+      expect(await real.balanceOf(authorizedRecipient.address)).to.equal(availableAmount);
+      expect(await real.balanceOf(authorizedSender.address)).to.equal(frozenBalance);
     });
   });
 
