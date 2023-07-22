@@ -22,9 +22,16 @@ contract CBDCAccessControl is AccessControl {
 
     modifier checkAccess(address from, address to) {
         require(
+            from != address(0) || to != address(0),
+            "CBDCAccessControl: Both from and to accounts cannot be zero"
+        );
+        require(
+            from == address(0) ||
+            to == address(0) ||
             authorizedAccounts[from] && authorizedAccounts[to],
             "CBDCAccessControl: Both from and to accounts must be authorized"
         );
+
         _;
     }
 

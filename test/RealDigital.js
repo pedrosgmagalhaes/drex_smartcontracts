@@ -153,12 +153,17 @@ describe("RealDigital", function () {
   // Transfers
   describe("Transfers", function () {
     it("Should reject transfer to and from a disabled account", async function () {
-      const { real, authorizedSender, unauthorizedAccount } = await loadFixture(deployMintTokens);
+      const { real, authority, authorizedSender, unauthorizedAccount } = await loadFixture(deployMintTokens);
       await expect(
-        real.connect(authorizedSender).transfer(unauthorizedAccount.address, ethers.utils.parseEther("1"))
+        real.connect(authorizedSender).transfer(unauthorizedAccount.address, MINT_AMOUNT)
       ).to.be.revertedWith("CBDCAccessControl: Both from and to accounts must be authorized");
+
+      // the account needs to have funds, because the balance check happens before the account check
+      await real.connect(authority).enableAccount(unauthorizedAccount.address);
+      await real.connect(authority).mint(unauthorizedAccount.address, MINT_AMOUNT);
+      await real.connect(authority).disableAccount(unauthorizedAccount.address);
       await expect(
-        real.connect(unauthorizedAccount).transfer(authorizedSender.address, ethers.utils.parseEther("1"))
+        real.connect(unauthorizedAccount).transfer(authorizedSender.address, MINT_AMOUNT)
       ).to.be.revertedWith("CBDCAccessControl: Both from and to accounts must be authorized");
     });
 

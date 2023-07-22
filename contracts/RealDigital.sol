@@ -44,7 +44,7 @@ contract RealDigital is ERC20, ERC20Burnable, Pausable, CBDCAccessControl {
     function transfer(
         address recipient,
         uint256 amount
-    ) public override whenNotPaused checkAccess(_msgSender(), recipient) returns (bool) {
+    ) public override whenNotPaused returns (bool) {
         return super.transfer(recipient, amount);
     }
 
@@ -52,7 +52,7 @@ contract RealDigital is ERC20, ERC20Burnable, Pausable, CBDCAccessControl {
         address sender,
         address recipient,
         uint256 amount
-    ) public override whenNotPaused checkAccess(sender, recipient) returns (bool) {
+    ) public override whenNotPaused returns (bool) {
         require(
             sender == _msgSender() || hasRole(MOVER_ROLE, _msgSender()),
             "RealDigital: msg.sender must be sender or have MOVER_ROLE"
@@ -93,7 +93,7 @@ contract RealDigital is ERC20, ERC20Burnable, Pausable, CBDCAccessControl {
         address from,
         address to,
         uint256 amount
-    ) internal override checkFrozenBalance(from, amount) {
+    ) internal override checkFrozenBalance(from, amount) checkAccess(from, to) {
         super._beforeTokenTransfer(from, to, amount);
     }
 }
