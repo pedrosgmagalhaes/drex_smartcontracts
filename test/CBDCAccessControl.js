@@ -46,6 +46,10 @@ describe("CBDCAccessControl", function () {
     it("should grant ACCESS_ROLE to authority", async function () {
       expect(await accessControl.hasRole(await accessControl.ACCESS_ROLE(), authority.address)).to.be.true;
     });
+
+    it("should grant FREEZER_ROLE to authority", async function () {
+      expect(await accessControl.hasRole(await accessControl.FREEZER_ROLE(), authority.address)).to.be.true;
+    });
   });
 
   describe("Authorized Accounts", function () {
@@ -61,6 +65,19 @@ describe("CBDCAccessControl", function () {
         expect(
             accessControl.enableAccount(testAccount)
         ).to.be.revertedWith("AccessControl: account is missing the ACCESS_ROLE");
+    });
+  });
+
+  describe("Authority change", function () {
+    it("admin can change authority", async function () {
+      await accessControl.changeAuthority(testAccount.address);
+      expect(await accessControl.authority()).to.equal(testAccount.address);
+    });
+
+    it("non-admin can't change authority", async function () {
+        expect(
+            accessControl.connect(testAccount).changeAuthority(testAccount.address)
+        ).to.be.revertedWith("CBDCAccessControl: Only admin can change authority");
     });
   });
 });
