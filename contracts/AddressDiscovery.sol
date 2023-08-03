@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract AddressDiscovery is AccessControl {
-    address public authority;
-    address public admin;
+    address internal authority;
+    address internal admin;
 
     bytes32 public constant ACCESS_ROLE = keccak256("ACCESS_ROLE");
 
