@@ -27,4 +27,17 @@ describe("AddressDiscovery", function () {
         .updateAddress(smartContract, unauthorizedAccount.address)
     ).to.be.revertedWith(getRoleError(unauthorizedAccount.address, "ACCESS_ROLE"));
   });
+
+  it("admin can change authority", async function () {
+    const { addressDiscovery, unauthorizedAccount } = await loadFixture(deploy);
+    await addressDiscovery.changeAuthority(unauthorizedAccount.address);
+    expect(await addressDiscovery.authority()).to.equal(unauthorizedAccount.address);
+  });
+
+  it("non-admin can't change authority", async function () {
+    const { addressDiscovery, unauthorizedAccount } = await loadFixture(deploy);
+    expect(
+        addressDiscovery.connect(unauthorizedAccount).changeAuthority(unauthorizedAccount.address)
+        ).to.be.revertedWith("AddressDiscovery: Only admin can change authority");
+  });
 });
