@@ -4,7 +4,7 @@ const { deploy } = require("./fixtures/AddressDiscovery");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { getRoleError } = require("../util/roles");
 
-describe.only("AddressDiscovery", function () {
+describe("AddressDiscovery", function () {
   it("Should update address", async function () {
     const { addressDiscovery, authority } = await loadFixture(deploy);
     const smartContract = ethers.utils.keccak256(

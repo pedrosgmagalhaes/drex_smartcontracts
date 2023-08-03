@@ -18,12 +18,12 @@ contract RealDigitalDefaultAccount is AccessControl {
     }
 
     function addDefaultAccount(uint256 cnpj8, address account) public onlyRole(ACCESS_ROLE) {
+        defaultAccount[cnpj8] = account;
         RealDigital rd = getRealTokenizado(cnpj8);
         bytes32[] memory roles = getParticipantRoles(rd);
         for (uint256 i = 0; i < roles.length; i++) {
             rd.grantRole(roles[i], account);
         }
-        defaultAccount[cnpj8] = account;
     }
 
     function updateDefaultAccount(uint256 cnpj8, address account) public {

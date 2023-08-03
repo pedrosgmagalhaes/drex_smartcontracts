@@ -9,5 +9,6 @@ const getRoleError = (address, role) => {
 }
 
 module.exports = {
-    getRoleError
+    getRoleError,
+    roleKeccak
 }
