@@ -23,7 +23,7 @@ class RealTokenizadoParams {
 
   getAddressDiscoveryKey() {
     return ethers.utils.keccak256(
-      ethers.utils.solidityPack(["string", "uint256"], [this.name, this.cnpj8])
+      ethers.utils.solidityPack(["string", "uint256"], ["RealTokenizado", this.cnpj8])
     );
   }
 }
@@ -87,7 +87,8 @@ const deploy = async (addressDiscovery, realDigitalDefaultAccount, realTokenizad
 
 const deployAddDefaultAccount = async (
   _addressDiscovery,
-  _realDigitalDefaultAccount
+  _realDigitalDefaultAccount,
+  _realTokenizadoParams
 ) => {
   const {
     addressDiscovery,
@@ -98,7 +99,7 @@ const deployAddDefaultAccount = async (
     realTokenizadoParams,
     newReserve,
     unauthorized,
-   } = await deploy(_addressDiscovery, _realDigitalDefaultAccount);
+   } = await deploy(_addressDiscovery, _realDigitalDefaultAccount, _realTokenizadoParams);
 
   await realDigitalDefaultAccount
     .connect(authority)
