@@ -5,8 +5,8 @@ import "./CBDCAccessControl.sol";
 import "./RealDigital.sol";
 import "./RealTokenizado.sol";
 
-contract SwapOneStep is CBDCAccessControl {
-    RealDigital private CBDC;
+contract SwapOneStep {
+    RealDigital public CBDC;
 
     event SwapExecuted(
         uint256 senderNumber,
@@ -17,10 +17,8 @@ contract SwapOneStep is CBDCAccessControl {
     );
 
     constructor(
-        RealDigital _CBDC,
-        address _authority,
-        address _admin
-    ) CBDCAccessControl(_authority, _admin) {
+        RealDigital _CBDC
+    ) {
         CBDC = _CBDC;
     }
 
@@ -30,23 +28,19 @@ contract SwapOneStep is CBDCAccessControl {
         address receiver,
         uint256 amount
     ) public {
-        // Check the balance of the sender
+        require(tokenSender.verifyAccount(msg.sender), "SwapOneStep: Sender is not authorized");
+        require(tokenReceiver.verifyAccount(receiver), "SwapOneStep: Receiver is not authorized");
         require(
-            tokenSender.balanceOf(msg.sender) >= amount,
+            tokenSender.balanceOf(msg.sender) - tokenSender.frozenBalanceOf(msg.sender) >= amount,
             "SwapOneStep: Sender does not have enough balance"
         );
 
-        // Check that the receiver token's reserve has enough balance
-        require(
-            tokenReceiver.balanceOf(tokenReceiver.reserve()) >= amount,
-            "SwapOneStep: Receiver token reserve does not have enough balance"
-        );
-
-        // Transfer the amount from the sender to the sender token's reserve
-        tokenSender.transferFrom(msg.sender, tokenSender.reserve(), amount);
-
-        // Transfer the equivalent amount from the receiver token's reserve to the receiver
-        tokenReceiver.transferFrom(tokenReceiver.reserve(), receiver, amount);
+        // burn the senders RealTokenizado
+        tokenSender.burnFrom(msg.sender, amount);
+        // transfer the CBDC from the sender participant's reserve to the receiver participant's reserve
+        CBDC.move(tokenSender.reserve(), tokenReceiver.reserve(), amount);
+        // mint the receivers RealTokenizado
+        tokenReceiver.mint(receiver, amount);
 
         // Emit the SwapExecuted event
         emit SwapExecuted(
@@ -56,13 +50,5 @@ contract SwapOneStep is CBDCAccessControl {
             receiver,
             amount
         );
-    }
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return
-            interfaceId == type(AccessControl).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 }
