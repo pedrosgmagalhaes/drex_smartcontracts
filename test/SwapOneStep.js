@@ -1,33 +1,33 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const {
-  deployWithRealTokenizado,
+  deployOneStepWithRealTokenizado: deployWithRealTokenizado,
   INITIAL_BALANCE,
-} = require("./fixtures/SwapOneStep");
+} = require("./fixtures/Swaps");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("SwapOneStep", function () {
   describe("executeSwap", function () {
     it("Should swap tokens", async function () {
       const {
-        swapOneStep,
+        swap,
         realDigital,
         realTokenizado1,
         realTokenizado2,
         enabledSender,
         enabledRecipient,
-      } = await loadFixture(deployWithRealTokenizado);
+      } = await deployWithRealTokenizado();
       const amount = INITIAL_BALANCE.sub(20000);
       const expectedSenderBalancePost = INITIAL_BALANCE.sub(amount);
 
-      await realTokenizado1.connect(enabledSender).increaseAllowance(swapOneStep.address, amount);
+      await realTokenizado1.connect(enabledSender).increaseAllowance(swap.address, amount);
 
       expect(realTokenizado1.address).to.not.be.equal(realTokenizado2.address);
       expect(await realTokenizado1.reserve()).to.not.be.equal(await realTokenizado2.reserve());
       expect(await realDigital.balanceOf(realTokenizado1.reserve())).to.equal(INITIAL_BALANCE);
       expect(await realDigital.balanceOf(realTokenizado2.reserve())).to.equal(0);
 
-      await swapOneStep
+      await swap
         .connect(enabledSender)
         .executeSwap(
           realTokenizado1.address,
@@ -59,7 +59,7 @@ describe("SwapOneStep", function () {
 
     it("Should revert if sender is not enabled", async function () {
       const {
-        swapOneStep,
+        swap,
         realTokenizado1,
         realTokenizado2,
         unauthorized,
@@ -67,7 +67,7 @@ describe("SwapOneStep", function () {
       const amount = INITIAL_BALANCE.sub(20000);
 
       await expect(
-        swapOneStep
+        swap
           .connect(unauthorizedAccount)
           .executeSwap(
             realTokenizado1.address,
@@ -80,7 +80,7 @@ describe("SwapOneStep", function () {
 
     it("Should revert if recipient is not enabled", async function () {
       const {
-        swapOneStep,
+        swap,
         realTokenizado1,
         realTokenizado2,
         enabledSender,
@@ -89,7 +89,7 @@ describe("SwapOneStep", function () {
       const amount = INITIAL_BALANCE.sub(20000);
 
       await expect(
-        swapOneStep
+        swap
           .connect(enabledSender)
           .executeSwap(
             realTokenizado1.address,
@@ -102,7 +102,7 @@ describe("SwapOneStep", function () {
 
     it("Should revert on insufficient balance", async function () {
       const {
-        swapOneStep,
+        swap,
         realTokenizado1,
         realTokenizado2,
         enabledSender,
@@ -111,7 +111,7 @@ describe("SwapOneStep", function () {
       const amount = INITIAL_BALANCE.add(20000);
 
       await expect(
-        swapOneStep
+        swap
           .connect(enabledSender)
           .executeSwap(
             realTokenizado1.address,
