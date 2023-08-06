@@ -5,42 +5,49 @@ import "./CBDCAccessControl.sol";
 import "./RealDigital.sol";
 import "./RealTokenizado.sol";
 
-contract SwapTwoSteps is CBDCAccessControl {
-    struct Proposal {
-        RealTokenizado tokenSender;
-        RealTokenizado tokenReceiver;
-        address receiver;
-        uint256 amount;
-        bool executed;
+contract SwapTwoSteps {
+    enum SwapStatus {
+      PENDING,          // Swap operation registered, pending cancellation or execution.
+      EXECUTED,         // Swap operation executed.
+      CANCELLED         // Swap operation cancelled.
     }
 
+    struct SwapProposal {
+      RealTokenizado tokenSender;      // The address of the Real Tokenizado contract of the paying participant
+      RealTokenizado tokenReceiver;    // The address of the Real Tokenizado contract of the receiving participant
+      address sender;                  // The address of the payer's wallet
+      address receiver;                // The address of the receiver's wallet
+      uint256 amount;                  // Amount of Reais to be moved.
+      SwapStatus status;               // Current situation of the operation.
+      uint256 timestamp;               // The timestamp of the operation.
+    }
+
+    uint256 private immutable EXPIRATION_TIME = 60; // 60 seconds
     RealDigital private CBDC;
-    mapping(uint256 => Proposal) private proposals;
-    uint256 private proposalCount;
+    mapping(uint256 => SwapProposal) public swapProposals;
+    uint256 private _nextProposalId = 0;
 
     event SwapStarted(
-        uint256 senderNumber,
-        uint256 receiverNumber,
-        address sender,
-        address receiver,
-        uint256 amount
+      uint256 proposalId,
+      uint256 senderNumber,
+      uint256 receiverNumber,
+      address sender,
+      address receiver,
+      uint256 amount
     );
     event SwapExecuted(
-        uint256 senderNumber,
-        uint256 receiverNumber,
-        address sender,
-        address receiver,
-        uint256 amount
+      uint256 proposalId,
+      uint256 senderNumber,
+      uint256 receiverNumber,
+      address sender,
+      address receiver,
+      uint256 amount
     );
     event SwapCancelled(uint256 proposalId, string reason);
+    event ExpiredProposal(uint256 proposalId);
 
-    constructor(
-        RealDigital _CBDC,
-        address _authority,
-        address _admin
-    ) CBDCAccessControl(_authority, _admin) {
+    constructor(RealDigital _CBDC) {
         CBDC = _CBDC;
-        proposalCount = 0;
     }
 
     function startSwap(
@@ -49,85 +56,103 @@ contract SwapTwoSteps is CBDCAccessControl {
         address receiver,
         uint256 amount
     ) public {
-        // Check the balance of the sender
-        require(
-            tokenSender.balanceOf(msg.sender) >= amount,
-            "SwapTwoSteps: Sender does not have enough balance"
-        );
-        // Create a proposal
-        proposals[proposalCount] = Proposal({
+        require(tokenSender.verifyAccount(msg.sender), "SwapTwoSteps: Sender is not authorized");
+        require(tokenReceiver.verifyAccount(receiver), "SwapTwoSteps: Receiver is not authorized");
+
+        _secureFunds(tokenSender, msg.sender, amount);
+
+        swapProposals[_nextProposalId++] = SwapProposal({
             tokenSender: tokenSender,
             tokenReceiver: tokenReceiver,
+            sender: msg.sender,
             receiver: receiver,
             amount: amount,
-            executed: false
+            status: SwapStatus.PENDING,
+            timestamp: block.timestamp
         });
         // Emit the SwapStarted event
         emit SwapStarted(
+            _nextProposalId - 1,
             tokenSender.cnpj8(),
             tokenReceiver.cnpj8(),
             msg.sender,
             receiver,
             amount
         );
-        proposalCount++;
     }
 
     function executeSwap(uint256 proposalId) public {
-        Proposal storage proposal = proposals[proposalId];
-        require(!proposal.executed, "SwapTwoSteps: Proposal already executed");
+        require(proposalId < _nextProposalId, "SwapTwoSteps: Proposal does not exist");
+        SwapProposal storage proposal = swapProposals[proposalId];
+        require(proposal.receiver == msg.sender, "SwapTwoSteps: Only the receiver can accept the swap");
+        require(proposal.status == SwapStatus.PENDING, "SwapTwoSteps: Proposal already closed");
+        // re-check authorization as it might have changed since the proposal was created
+        require(proposal.tokenSender.verifyAccount(proposal.sender), "SwapTwoSteps: Sender is not authorized");
+        require(proposal.tokenReceiver.verifyAccount(proposal.receiver), "SwapTwoSteps: Receiver is not authorized");
+        require(block.timestamp - proposal.timestamp <= EXPIRATION_TIME, "SwapTwoSteps: Proposal expired");
 
-        // Check that the receiver token's reserve has enough balance
+        _releaseFunds(proposal.tokenSender, proposal.sender, proposal.amount);
+
+        // doublecheck if the sender still has enough balance
+        // the funds could have been unfrozen by the authority in the meantime
         require(
-            proposal.tokenReceiver.balanceOf(
-                proposal.tokenReceiver.reserve()
-            ) >= proposal.amount,
-            "SwapTwoSteps: Receiver token reserve does not have enough balance"
+            proposal.tokenSender.balanceOf(proposal.sender) - proposal.tokenSender.frozenBalanceOf(proposal.sender) >= proposal.amount,
+            "SwapTwoSteps: Sender does not have enough balance"
         );
 
-        // Transfer the amount from the sender to the sender token's reserve
-        proposal.tokenSender.transferFrom(
-            msg.sender,
-            proposal.tokenSender.reserve(),
-            proposal.amount
-        );
+        // burn the senders RealTokenizado
+        proposal.tokenSender.burnFrom(proposal.sender, proposal.amount);
+        // transfer the CBDC from the sender participant's reserve to the receiver participant's reserve
+        CBDC.move(proposal.tokenSender.reserve(), proposal.tokenReceiver.reserve(), proposal.amount);
+        // mint the receivers RealTokenizado
+        proposal.tokenReceiver.mint(proposal.receiver, proposal.amount);
 
-        // Transfer the equivalent amount from the receiver token's reserve to the receiver
-        proposal.tokenReceiver.transferFrom(
-            proposal.tokenReceiver.reserve(),
-            proposal.receiver,
-            proposal.amount
-        );
+        proposal.status = SwapStatus.EXECUTED;
+        proposal.timestamp = block.timestamp;
 
-        // Mark proposal as executed
-        proposal.executed = true;
-
-        // Emit the SwapExecuted event
         emit SwapExecuted(
+            proposalId,
             proposal.tokenSender.cnpj8(),
             proposal.tokenReceiver.cnpj8(),
-            msg.sender,
+            proposal.sender,
             proposal.receiver,
             proposal.amount
         );
     }
 
     function cancelSwap(uint256 proposalId, string memory reason) public {
-        Proposal storage proposal = proposals[proposalId];
-        require(!proposal.executed, "SwapTwoSteps: Proposal already executed");
+        require(proposalId < _nextProposalId, "SwapTwoSteps: Proposal does not exist");
+        SwapProposal storage proposal = swapProposals[proposalId];
+        require(
+          block.timestamp - proposal.timestamp > EXPIRATION_TIME || proposal.receiver == msg.sender || proposal.sender == msg.sender,
+          "SwapTwoSteps: Only the sender or receiver can cancel the swap"
+        );
+        require(proposal.status == SwapStatus.PENDING, "SwapTwoSteps: Proposal already closed");
 
-        // Delete the proposal
-        delete proposals[proposalId];
+        _releaseFunds(proposal.tokenSender, proposal.sender, proposal.amount);
+        proposal.status = SwapStatus.CANCELLED;
+        proposal.timestamp = block.timestamp;
 
-        // Emit the SwapCancelled event
-        emit SwapCancelled(proposalId, reason);
+        // if the swap expired emit SwapExpired
+        // otherwise emit SwapCancelled
+        if (block.timestamp - proposal.timestamp > EXPIRATION_TIME) {
+          emit ExpiredProposal(proposalId);
+        } else {
+          emit SwapCancelled(proposalId, reason);
+        }
     }
 
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return
-            interfaceId == type(AccessControl).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function _secureFunds(RealTokenizado _sentToken, address _sender, uint256 _amount) internal {
+        require(
+            _sentToken.balanceOf(_sender) - _sentToken.frozenBalanceOf(_sender) >= _amount,
+            "SwapTwoSteps: Sender does not have enough balance"
+        );
+        _sentToken.increaseFrozenBalance(_sender, _amount);
+        CBDC.increaseFrozenBalance(_sentToken.reserve(), _amount);
+    }
+
+    function _releaseFunds(RealTokenizado _sentToken, address _sender, uint256 _amount) internal {
+        _sentToken.decreaseFrozenBalance(_sender, _amount);
+        CBDC.decreaseFrozenBalance(_sentToken.reserve(), _amount);
     }
 }
