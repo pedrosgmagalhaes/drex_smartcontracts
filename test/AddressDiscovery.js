@@ -1,56 +1,43 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const {
-    loadFixture,
-} = require("@nomicfoundation/hardhat-network-helpers");
-
-const deploy = async () => {
-    const AddressDiscovery = await ethers.getContractFactory("AddressDiscovery");
-    [admin, authority, testAccount] = await ethers.getSigners();
-    const addressDiscovery = await AddressDiscovery.deploy(authority.address, admin.address);
-    await addressDiscovery.deployed();
-    return { addressDiscovery, admin, authority, testAccount };
-}
+const { deploy } = require("./fixtures/AddressDiscovery");
+const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
+const { getRoleError } = require("../util/roles");
 
 describe("AddressDiscovery", function () {
-    let addressDiscovery;
-    let admin;
-    let authority;
-    let testAccount;
+  it("Should update address", async function () {
+    const { addressDiscovery, authority } = await loadFixture(deploy);
+    const smartContract = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes("SmartContract")
+    );
+    const newAddress = ethers.Wallet.createRandom().address;
+    await addressDiscovery.connect(authority).updateAddress(smartContract, newAddress);
+    expect(await addressDiscovery.addressDiscovery(smartContract)).to.equal(newAddress);
+  });
 
-    beforeEach(async function () {
-        ({ addressDiscovery, admin, authority, testAccount } = await loadFixture(deploy));
-    });
+  it("Should revert if not authorized", async function () {
+    const { addressDiscovery, unauthorizedAccount } = await loadFixture(deploy);
+    const smartContract = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes("SmartContract")
+    );
 
-    describe("Update Address", function () {
-        it("should allow an account with ACCESS_ROLE to update address", async function () {
-            const key = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["string"], ["TEST_KEY"]));
-            await addressDiscovery.connect(authority).updateAddress(key, testAccount.address);
-            expect(await addressDiscovery.addressDiscovery(key)).to.equal(testAccount.address);
-        });
+    await expect(
+      addressDiscovery
+        .connect(unauthorizedAccount)
+        .updateAddress(smartContract, unauthorizedAccount.address)
+    ).to.be.revertedWith(getRoleError(unauthorizedAccount.address, "ACCESS_ROLE"));
+  });
 
-        it("should not allow an account without ACCESS_ROLE to update address", async function () {
-            const key = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["string"], ["TEST_KEY"]));
-            const missingRole = await addressDiscovery.ACCESS_ROLE();
-            await expect(
-                addressDiscovery
-                    .connect(testAccount)
-                    .updateAddress(key, testAccount.address)
-            ).to.be.revertedWith(
-                `AccessControl: account ${testAccount.address.toLowerCase()} is missing role ${missingRole}`
-            );
-        });
+  it("admin can change authority", async function () {
+    const { addressDiscovery, unauthorizedAccount } = await loadFixture(deploy);
+    await addressDiscovery.changeAuthority(unauthorizedAccount.address);
+    expect(await addressDiscovery.authority()).to.equal(unauthorizedAccount.address);
+  });
 
-        it("admin can change authority", async function () {
-            await addressDiscovery.connect(admin).changeAuthority(testAccount.address);
-            expect(await addressDiscovery.authority()).to.equal(testAccount.address);
-        });
-
-        it("non-admin can't change authority", async function () {
-            expect(
-                addressDiscovery.connect(testAccount).changeAuthority(testAccount.address)
-            ).to.be.revertedWith("AddressDiscovery: Only admin can change authority");
-        });
-
-    });
+  it("non-admin can't change authority", async function () {
+    const { addressDiscovery, unauthorizedAccount } = await loadFixture(deploy);
+    expect(
+        addressDiscovery.connect(unauthorizedAccount).changeAuthority(unauthorizedAccount.address)
+        ).to.be.revertedWith("AddressDiscovery: Only admin can change authority");
+  });
 });
