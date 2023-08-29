@@ -16,6 +16,8 @@ contract AddressDiscovery is AccessControl {
     constructor(address _authority, address _admin) {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(ACCESS_ROLE, _authority);
+        authority = _authority;
+        admin = _admin;
     }
 
     function updateAddress(bytes32 smartContract, address newAddress) external onlyRole(ACCESS_ROLE) {

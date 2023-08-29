@@ -4,7 +4,31 @@ const {
   deploy: deployRealDigitalDefaultAccount,
 } = require("./RealDigitalDefaultAccount");
 
-const deploy = async (addressDiscovery, realDigitalDefaultAccount) => {
+class RealTokenizadoParams {
+  constructor(
+    name,
+    symbol,
+    participant,
+    cnpj8,
+    reserve,
+    defaultAccount,
+  ) {
+    this.name = name;
+    this.symbol = symbol;
+    this.participant = participant;
+    this.cnpj8 = cnpj8;
+    this.reserve = reserve;
+    this.defaultAccount = defaultAccount;
+  }
+
+  getAddressDiscoveryKey() {
+    return ethers.utils.keccak256(
+      ethers.utils.solidityPack(["string", "uint256"], ["RealTokenizado", this.cnpj8])
+    );
+  }
+}
+
+const deploy = async (addressDiscovery, realDigitalDefaultAccount, realTokenizadoParams) => {
   const [admin, authority, reserve, newReserve, defaultAccount, unauthorized] =
     await ethers.getSigners();
 
@@ -18,33 +42,34 @@ const deploy = async (addressDiscovery, realDigitalDefaultAccount) => {
     ).realDigitalDefaultAccount;
   }
 
-  const name = "RealTokenizado";
-  const symbol = "RTK";
-  const cnpj8 = 12345678;
-  const participant = "ParticipantName";
+  if (!realTokenizadoParams) {
+    realTokenizadoParams = new RealTokenizadoParams(
+      "RealTokenizado",
+      "RTK",
+      "ParticipantName",
+      12345678,
+      reserve,
+      defaultAccount,
+    );
+  }
 
   const RealTokenizado = await ethers.getContractFactory("RealTokenizado");
   const realTokenizadoInstance = await RealTokenizado.deploy(
     addressDiscovery.address,
-    name,
-    symbol,
+    realTokenizadoParams.name,
+    realTokenizadoParams.symbol,
     authority.address,
     admin.address,
-    participant,
-    cnpj8,
-    reserve.address
+    realTokenizadoParams.participant,
+    realTokenizadoParams.cnpj8,
+    realTokenizadoParams.reserve.address
   );
   await realTokenizadoInstance.deployed();
 
   await addressDiscovery
     .connect(authority)
     .updateAddress(
-      ethers.utils.keccak256(
-        ethers.utils.solidityPack(
-          ["string", "uint256"],
-          ["RealTokenizado", cnpj8]
-        )
-      ),
+      realTokenizadoParams.getAddressDiscoveryKey(),
       realTokenizadoInstance.address
     );
 
@@ -54,20 +79,16 @@ const deploy = async (addressDiscovery, realDigitalDefaultAccount) => {
     realTokenizado: realTokenizadoInstance,
     admin,
     authority,
-    reserve,
+    realTokenizadoParams,
     newReserve,
-    defaultAccount,
     unauthorized,
-    name,
-    symbol,
-    cnpj8,
-    participant,
   };
 };
 
 const deployAddDefaultAccount = async (
   _addressDiscovery,
-  _realDigitalDefaultAccount
+  _realDigitalDefaultAccount,
+  _realTokenizadoParams
 ) => {
   const {
     addressDiscovery,
@@ -75,19 +96,14 @@ const deployAddDefaultAccount = async (
     realTokenizado,
     admin,
     authority,
-    reserve,
+    realTokenizadoParams,
     newReserve,
-    defaultAccount,
     unauthorized,
-    name,
-    symbol,
-    cnpj8,
-    participant,
-   } = await deploy(_addressDiscovery, _realDigitalDefaultAccount);
+   } = await deploy(_addressDiscovery, _realDigitalDefaultAccount, _realTokenizadoParams);
 
   await realDigitalDefaultAccount
     .connect(authority)
-    .addDefaultAccount(cnpj8, defaultAccount.address);
+    .addDefaultAccount(realTokenizadoParams.cnpj8, realTokenizadoParams.defaultAccount.address);
 
   return {
     addressDiscovery,
@@ -95,18 +111,14 @@ const deployAddDefaultAccount = async (
     realTokenizado,
     admin,
     authority,
-    reserve,
+    realTokenizadoParams,
     newReserve,
-    defaultAccount,
     unauthorized,
-    name,
-    symbol,
-    cnpj8,
-    participant,
   };
 };
 
 module.exports = {
   deploy,
-  deployAddDefaultAccount
+  deployAddDefaultAccount,
+  RealTokenizadoParams,
 };

@@ -6,10 +6,10 @@ describe("RealTokenizado", () => {
 
   describe("constructor", () => {
     it("should set cnpj8, participant, and reserve", async () => {
-      const { realTokenizado, reserve, participant, cnpj8 } = await loadFixture(deployAddDefaultAccount);
-      expect(await realTokenizado.cnpj8()).to.equal(cnpj8);
-      expect(await realTokenizado.participant()).to.equal(participant);
-      expect(await realTokenizado.reserve()).to.equal(reserve.address);
+      const { realTokenizado, realTokenizadoParams } = await loadFixture(deployAddDefaultAccount);
+      expect(await realTokenizado.cnpj8()).to.equal(realTokenizadoParams.cnpj8);
+      expect(await realTokenizado.participant()).to.equal(realTokenizadoParams.participant);
+      expect(await realTokenizado.reserve()).to.equal(realTokenizadoParams.reserve.address);
     });
   });
 
@@ -22,8 +22,8 @@ describe("RealTokenizado", () => {
     });
 
     it("should update reserve", async () => {
-      const { realTokenizado, newReserve, defaultAccount } = await loadFixture(deployAddDefaultAccount);
-      await realTokenizado.connect(defaultAccount).updateReserve(newReserve.address);
+      const { realTokenizado, newReserve, realTokenizadoParams } = await loadFixture(deployAddDefaultAccount);
+      await realTokenizado.connect(realTokenizadoParams.defaultAccount).updateReserve(newReserve.address);
       expect(await realTokenizado.reserve()).to.equal(newReserve.address);
     });
   });

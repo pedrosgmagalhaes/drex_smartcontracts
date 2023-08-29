@@ -29,9 +29,15 @@ describe("AddressDiscovery", function () {
   });
 
   it("admin can change authority", async function () {
-    const { addressDiscovery, unauthorizedAccount } = await loadFixture(deploy);
+    const { addressDiscovery, authority, unauthorizedAccount } = await loadFixture(deploy);
     await addressDiscovery.changeAuthority(unauthorizedAccount.address);
-    expect(await addressDiscovery.authority()).to.equal(unauthorizedAccount.address);
+    const accessRole = await addressDiscovery.ACCESS_ROLE();
+    expect(
+      await addressDiscovery.hasRole(accessRole, authority.address)
+    ).to.equal(false);
+    expect(
+      await addressDiscovery.hasRole(accessRole, unauthorizedAccount.address)
+    ).to.equal(true);
   });
 
   it("non-admin can't change authority", async function () {
