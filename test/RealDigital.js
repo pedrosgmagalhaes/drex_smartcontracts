@@ -153,4 +153,30 @@ describe("RealDigital", function () {
     });
   });
 
+  describe("Move", function () {
+    it("Should reject move if caller doesn't have MOVER_ROLE", async function () {
+      const { real, authorizedSender, authorizedRecipient } = await loadFixture(deployMintAndFreezeTokens);
+      await expect(
+        real.connect(authorizedSender).move(authorizedSender.address, authorizedRecipient.address, MINT_AMOUNT)
+      ).to.be.revertedWith(getRoleError(authorizedSender.address, "MOVER_ROLE"));
+    });
+
+    it("Should allow move by authority", async function () {
+      const { real, authority, authorizedSender, authorizedRecipient } = await loadFixture(
+        deployMintTokens
+      );
+      const totalBalance = await real.balanceOf(authorizedSender.address);
+      const movedBalance = totalBalance.sub(1000);
+      await real
+        .connect(authority)
+        .move(authorizedSender.address, authorizedRecipient.address, movedBalance);
+      expect(await real.balanceOf(authorizedRecipient.address)).to.equal(
+        movedBalance
+      );
+      expect(await real.balanceOf(authorizedSender.address)).to.equal(
+        totalBalance.sub(movedBalance)
+      );
+    });
+  });
+
 });
