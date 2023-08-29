@@ -87,6 +87,13 @@ const deployWithRealTokenizado = async (_realDigital, swapClass) => {
   const grantBurnerRt2 = await rt2.grantRole(await rt2.BURNER_ROLE(), swap.address);
   await grantBurnerRt2.wait();
 
+  if (swapClass === "SwapTwoSteps") {
+    const grantFreezerRt1 = await rt1.grantRole(await rt1.FREEZER_ROLE(), swap.address);
+    await grantFreezerRt1.wait();
+    const grantFreezerRd = await realDigital.grantRole(await realDigital.FREEZER_ROLE(), swap.address);
+    await grantFreezerRd.wait();
+  }
+
   return {
     realDigital,
     swap,
@@ -108,24 +115,24 @@ const deployOneStep = async (_realDigital) => {
   return deploy(_realDigital, "SwapOneStep");
 };
 
-const deployTwoStep = async (_realDigital) => {
-  return deploy(_realDigital, "SwapTwoStep");
+const deployTwoSteps = async (_realDigital) => {
+  return deploy(_realDigital, "SwapTwoSteps");
 };
 
 const deployOneStepWithRealTokenizado = async (_realDigital) => {
   return deployWithRealTokenizado(_realDigital, "SwapOneStep");
 };
 
-const deployTwoStepWithRealTokenizado = async (_realDigital) => {
-  return deployWithRealTokenizado(_realDigital, "SwapTwoStep");
+const deployTwoStepsWithRealTokenizado = async (_realDigital) => {
+  return deployWithRealTokenizado(_realDigital, "SwapTwoSteps");
 };
 
 
 
 module.exports = {
   deployOneStep,
-  deployTwoStep,
+  deployTwoSteps,
   deployOneStepWithRealTokenizado,
-  deployTwoStepWithRealTokenizado,
+  deployTwoStepsWithRealTokenizado,
   INITIAL_BALANCE
 };
