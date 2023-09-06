@@ -4,6 +4,9 @@
   "main": "index.js",
   "author": "Pedro Magalhaes",
   "license": "MIT",
+  "scripts": {
+    "test": "npx hardhat test"
+  },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
