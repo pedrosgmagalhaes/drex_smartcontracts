@@ -56,11 +56,13 @@ contract CBDCAccessControl is AccessControl {
     }
 
     function disableAccount(address member) public onlyRole(ACCESS_ROLE) {
+        require(authorizedAccounts[member], "CBDCAccessControl: Account is already disabled");
         authorizedAccounts[member] = false;
         emit DisabledAccount(member);
     }
 
     function enableAccount(address member) public onlyRole(ACCESS_ROLE) {
+        require(!authorizedAccounts[member], "CBDCAccessControl: Account is already enabled");
         authorizedAccounts[member] = true;
         emit EnabledAccount(member);
     }
