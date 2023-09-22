@@ -1,44 +1,63 @@
 const { ethers } = require("hardhat");
+const { deploy: deployAddressDiscovery } = require("./AddressDiscovery");
 const { deploy: deployRealDigital } = require("./RealDigital");
 const { deployAddDefaultAccount } = require("./RealTokenizado");
 const { RealTokenizadoParams } = require("./RealTokenizado");
 const { parseReal } = require("../../util/parseFormatReal");
 const { expect } = require("chai");
 
-const deploy = async (realDigital, swapClass) => {
+const keccakEncodeString = (str) => {
+  return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+};
+
+const deploy = async (addressDiscovery, realDigital) => {
+  if (!addressDiscovery) {
+    addressDiscovery = (await deployAddressDiscovery()).addressDiscovery;
+  }
   if (!realDigital) {
     realDigital = (await deployRealDigital()).real;
   }
 
-  const Swap = await ethers.getContractFactory(swapClass);
-  const [
-    admin,
-    authority,
-    unauthorizedAccount,
-  ] = await ethers.getSigners();
-
-  const swap = await Swap.deploy(
+  const [admin, authority] = await ethers.getSigners();
+  const SwapOneStep = await ethers.getContractFactory("SwapOneStep");
+  const swapOneStep = await SwapOneStep.deploy(
     realDigital.address
   );
-  await swap.deployed();
+  await swapOneStep.deployed();
 
-  realDigital.connect(admin).grantRole(await realDigital.MOVER_ROLE(), swap.address);
+  const SwapTwoSteps = await ethers.getContractFactory("SwapTwoSteps");
+  const swapTwoSteps = await SwapTwoSteps.deploy(
+    realDigital.address
+  );
+  await swapTwoSteps.deployed();
+
+  const moverRole = keccakEncodeString("MOVER_ROLE");
+
+  realDigital.connect(admin).grantRole(moverRole, swapOneStep.address);
+  realDigital.connect(admin).grantRole(moverRole, swapTwoSteps.address);
+  addressDiscovery.connect(authority).updateAddress(keccakEncodeString("SwapOneStep"), swapOneStep.address);
+  addressDiscovery.connect(authority).updateAddress(keccakEncodeString("SwapTwoSteps"), swapTwoSteps.address);
 
   return {
+    addressDiscovery,
     realDigital,
-    swap
+    swapOneStep,
+    swapTwoSteps,
   };
 };
 
 const INITIAL_BALANCE = parseReal("1000");
 
 
-const deployWithRealTokenizado = async (_realDigital, swapClass) => {
+const deployWithRealTokenizado = async (_addressDiscovery, _realDigital) => {
   const [admin, authority, rt1Reserve, rt1DefaultAccount, rt2Reserve, rt2DefaultAccount, enabledSender, enabledRecipient, unauthorized] = await ethers.getSigners();
-  const { realDigital, swap } = await deploy(_realDigital, swapClass);
+  const { addressDiscovery, realDigital, swapOneStep, swapTwoSteps } = await deploy(_addressDiscovery, _realDigital);
+
   // either _realDigital was undefined and was deployed, or it was defined and was passed to deploy
   // in either case, the correct _realDigital to be used is in realDigital returned from deploy
+  // same for _addressDiscovery
   _realDigital = realDigital;
+  _addressDiscovery = addressDiscovery;
 
   const rtp1 = new RealTokenizadoParams(
     "RealTokenizado1",
@@ -57,8 +76,8 @@ const deployWithRealTokenizado = async (_realDigital, swapClass) => {
     rt2DefaultAccount,
   );
 
-  const { addressDiscovery, realDigitalDefaultAccount, realTokenizado: rt1 } = await deployAddDefaultAccount(undefined, undefined, rtp1);
-  const { realTokenizado: rt2 } = await deployAddDefaultAccount(addressDiscovery, realDigitalDefaultAccount, rtp2);
+  const { realDigitalDefaultAccount, realTokenizado: rt1 } = await deployAddDefaultAccount(_addressDiscovery, undefined, swapOneStep, swapTwoSteps, rtp1);
+  const { realTokenizado: rt2 } = await deployAddDefaultAccount(addressDiscovery, realDigitalDefaultAccount, swapOneStep, swapTwoSteps, rtp2);
 
   const enableTx1 = await rt1.connect(authority).enableAccount(enabledSender.address);
   enableTx1.wait();
@@ -78,25 +97,14 @@ const deployWithRealTokenizado = async (_realDigital, swapClass) => {
   expect(await realDigital.balanceOf(rtp2.reserve.address)).to.equal(0);
   expect(await rt2.balanceOf(enabledRecipient.address)).to.equal(0);
 
-  const grantMinterRt1 = await rt1.grantRole(await rt1.MINTER_ROLE(), swap.address);
-  await grantMinterRt1.wait();
-  const grantMinterRt2 = await rt2.grantRole(await rt2.MINTER_ROLE(), swap.address);
-  await grantMinterRt2.wait();
-  const grantBurnerRt1 = await rt1.grantRole(await rt1.BURNER_ROLE(), swap.address);
-  await grantBurnerRt1.wait();
-  const grantBurnerRt2 = await rt2.grantRole(await rt2.BURNER_ROLE(), swap.address);
-  await grantBurnerRt2.wait();
+  const grantFreezerRd = await realDigital.grantRole(await realDigital.FREEZER_ROLE(), swapTwoSteps.address);
+  await grantFreezerRd.wait();
 
-  if (swapClass === "SwapTwoSteps") {
-    const grantFreezerRt1 = await rt1.grantRole(await rt1.FREEZER_ROLE(), swap.address);
-    await grantFreezerRt1.wait();
-    const grantFreezerRd = await realDigital.grantRole(await realDigital.FREEZER_ROLE(), swap.address);
-    await grantFreezerRd.wait();
-  }
 
   return {
     realDigital,
-    swap,
+    swapOneStep,
+    swapTwoSteps,
     addressDiscovery,
     realDigitalDefaultAccount,
     realTokenizado1: rt1,
@@ -111,28 +119,9 @@ const deployWithRealTokenizado = async (_realDigital, swapClass) => {
   };
 };
 
-const deployOneStep = async (_realDigital) => {
-  return deploy(_realDigital, "SwapOneStep");
-};
-
-const deployTwoSteps = async (_realDigital) => {
-  return deploy(_realDigital, "SwapTwoSteps");
-};
-
-const deployOneStepWithRealTokenizado = async (_realDigital) => {
-  return deployWithRealTokenizado(_realDigital, "SwapOneStep");
-};
-
-const deployTwoStepsWithRealTokenizado = async (_realDigital) => {
-  return deployWithRealTokenizado(_realDigital, "SwapTwoSteps");
-};
-
-
 
 module.exports = {
-  deployOneStep,
-  deployTwoSteps,
-  deployOneStepWithRealTokenizado,
-  deployTwoStepsWithRealTokenizado,
+  deploy,
+  deployWithRealTokenizado,
   INITIAL_BALANCE
 };

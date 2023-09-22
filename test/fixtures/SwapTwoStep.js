@@ -1,11 +1,10 @@
-const { ethers } = require("hardhat");
-const { expect } = require("chai");
-const { deployTwoStepsWithRealTokenizado, INITIAL_BALANCE } = require("./Swaps");
+const { deployWithRealTokenizado, INITIAL_BALANCE } = require("./Swaps");
 
 const deployInitiateSwap = async () => {
   const {
     realDigital,
-    swap,
+    swapOneStep,
+    swapTwoSteps,
     addressDiscovery,
     realDigitalDefaultAccount,
     realTokenizado1,
@@ -17,21 +16,22 @@ const deployInitiateSwap = async () => {
     enabledSender,
     enabledRecipient,
     unauthorized,
-  } = await deployTwoStepsWithRealTokenizado();
+  } = await deployWithRealTokenizado();
 
   const amount = INITIAL_BALANCE.sub(20000);
-  await swap.connect(enabledSender).startSwap(
+  await swapTwoSteps.connect(enabledSender).startSwap(
     realTokenizado1.address,
     realTokenizado2.address,
     enabledRecipient.address,
     amount
   );
 
-  await realTokenizado1.connect(enabledSender).increaseAllowance(swap.address, amount);
+  await realTokenizado1.connect(enabledSender).increaseAllowance(swapTwoSteps.address, amount);
 
   return {
     realDigital,
-    swap,
+    swapOneStep,
+    swapTwoSteps,
     addressDiscovery,
     realDigitalDefaultAccount,
     realTokenizado1,
