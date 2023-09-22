@@ -16,7 +16,9 @@ module.exports = {
     hardhat: {},
     besuPrivate: {
       url: process.env.BESU_PRIVATE_URL ?? "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts: {
+        mnemonic: process.env.MNEMONIC ?? "",
+      }
     },
   },
 };
