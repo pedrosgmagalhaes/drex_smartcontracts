@@ -18,7 +18,7 @@ class RealTokenizadoParams {
     return ethers.utils.keccak256(
       ethers.utils.solidityPack(
         ["string", "uint256"],
-        ["RealTokenizado", this.cnpj8]
+        ["RealTokenizado@", this.cnpj8]
       )
     );
   }
