@@ -1,6 +1,6 @@
 const hre = require("hardhat");
 const { ACCOUNTS, REAL_NAME, REAL_SYMBOL } = require("../util/constants");
-const { getAddressDiscoveryContractName } = require("../util/contracts");
+const { getAddressDiscoveryContractName, getDeployedContract } = require("../util/contracts");
 
 async function main() {
   const signers = await ethers.getSigners();
@@ -204,6 +204,16 @@ async function main() {
   console.log(`Registered participants:`);
   console.table(participants);
   console.log();
+
+  console.log(`Enabling participant default accounts...`);
+  for (const participant of participants) {
+    const enableParticipantTx = await real.connect(authority).enableAccount(participant.address);
+    await enableParticipantTx.wait();
+    const realTokenizado = getDeployedContract("RealTokenizado@" + participant.cjnp8);
+    const tokenizadoEnableParticipantTx = await realTokenizado.connect(participant).enableAccount(participant.address);
+    await tokenizadoEnableParticipantTx.wait();
+  }
+  console.log(`Participant accounts enabled in both RealDigital and RealTokenizado`);
 
   console.log(`Deploying STR...`);
   const STR = await ethers.getContractFactory("STR");
