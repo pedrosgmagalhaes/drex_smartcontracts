@@ -1,5 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
+require("./tasks/getContractAddress");
+require("./tasks/updateAddress");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {

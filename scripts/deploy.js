@@ -1,21 +1,6 @@
 const hre = require("hardhat");
 const { ACCOUNTS, REAL_NAME, REAL_SYMBOL } = require("../util/constants");
-
-const getAddressDiscoveryContractName = (humanReadableName) => {
-  if (humanReadableName.startsWith("RealTokenizado@")) {
-    const split = humanReadableName.split("@");
-    return ethers.utils.keccak256(
-      ethers.utils.solidityPack(
-        ["string", "uint256"],
-        ["RealTokenizado@", split[1]]
-      )
-    );
-  }
-
-  return hre.ethers.utils.keccak256(
-    hre.ethers.utils.toUtf8Bytes(humanReadableName)
-  );
-};
+const { getAddressDiscoveryContractName } = require("../util/contracts");
 
 async function main() {
   const signers = await ethers.getSigners();
