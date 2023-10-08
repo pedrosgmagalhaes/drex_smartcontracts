@@ -1,6 +1,6 @@
 const { CONTRACTS } = require("./constants");
 
-let addressDiscovery;
+let cachedAddressDiscovery;
 
 const getAddressDiscoveryContractName = (humanReadableName) => {
   if (humanReadableName.startsWith("RealTokenizado@")) {
@@ -18,8 +18,8 @@ const getAddressDiscoveryContractName = (humanReadableName) => {
   );
 };
 
-const getDeployedContract = async (contractKey) => {
-  if (!addressDiscovery) {
+const getAddressDiscovery = async () => {
+  if (!cachedAddressDiscovery) {
     if (!process.env.ADDRESS_DISCOVERY_ADDR) {
       throw new Error("No address found for ADDRESS_DISCOVERY in .env");
     }
@@ -27,9 +27,17 @@ const getDeployedContract = async (contractKey) => {
     const AddressDiscovery = await ethers.getContractFactory(
       "AddressDiscovery"
     );
-    addressDiscovery = await AddressDiscovery.attach(
+    cachedAddressDiscovery = await AddressDiscovery.attach(
       process.env.ADDRESS_DISCOVERY_ADDR
     );
+  }
+
+  return cachedAddressDiscovery;
+};
+
+const getDeployedContract = async (contractKey, addressDiscovery = null) => {
+  if (!addressDiscovery) {
+    addressDiscovery = await getAddressDiscovery();
   }
 
   if (contractKey === CONTRACTS.ADDRESS_DISCOVERY) {
@@ -50,6 +58,7 @@ const getDeployedContract = async (contractKey) => {
 };
 
 module.exports = {
+  getAddressDiscovery,
   getDeployedContract,
   getAddressDiscoveryContractName
 };
