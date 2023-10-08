@@ -209,7 +209,7 @@ async function main() {
   for (const participant of participants) {
     const enableParticipantTx = await real.connect(authority).enableAccount(participant.address);
     await enableParticipantTx.wait();
-    const realTokenizado = await getDeployedContract("RealTokenizado@" + participant.cjnp8);
+    const realTokenizado = await getDeployedContract("RealTokenizado@" + participant.cjnp8, addressDiscovery);
     const tokenizadoEnableParticipantTx = await realTokenizado.connect(participant.signer).enableAccount(participant.address);
     await tokenizadoEnableParticipantTx.wait();
   }
