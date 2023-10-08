@@ -144,8 +144,8 @@ async function main() {
 
 
   const participants = [
-    { cjnp8: 12345678, address: participant12345678.address },
-    { cjnp8: 87654321, address: participant87654321.address },
+    { cjnp8: 12345678, address: participant12345678.address, signer: participant12345678 },
+    { cjnp8: 87654321, address: participant87654321.address, signer: participant87654321 },
   ];
 
   console.log(`Deploy RealTokenizado for each participant...`);
@@ -209,8 +209,8 @@ async function main() {
   for (const participant of participants) {
     const enableParticipantTx = await real.connect(authority).enableAccount(participant.address);
     await enableParticipantTx.wait();
-    const realTokenizado = getDeployedContract("RealTokenizado@" + participant.cjnp8);
-    const tokenizadoEnableParticipantTx = await realTokenizado.connect(participant).enableAccount(participant.address);
+    const realTokenizado = await getDeployedContract("RealTokenizado@" + participant.cjnp8);
+    const tokenizadoEnableParticipantTx = await realTokenizado.connect(participant.signer).enableAccount(participant.address);
     await tokenizadoEnableParticipantTx.wait();
   }
   console.log(`Participant accounts enabled in both RealDigital and RealTokenizado`);
