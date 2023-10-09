@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import "./RealDigital.sol";
 import "./AddressDiscovery.sol";
 import "./RealDigitalDefaultAccount.sol";
+import "./SwapOneStep.sol";
+import "./SwapTwoSteps.sol";
 
 contract RealTokenizado is RealDigital {
     bytes32 internal constant ACCESS_FREEZER_MOVER_ADMIN = keccak256("ACCESS_FREEZER_MOVER_ADMIN_ROLE");
@@ -34,6 +36,17 @@ contract RealTokenizado is RealDigital {
         _grantRole(ACCESS_FREEZER_MOVER_ADMIN, _admin);
         RealDigitalDefaultAccount rdda = getRealDigitalDefaultAccount();
         _grantRole(ACCESS_FREEZER_MOVER_ADMIN, address(rdda));
+
+        address swapOneStep = addressDiscovery.addressDiscovery(keccak256("SwapOneStep"));
+        require(swapOneStep != address(0), "RealTokenizado: SwapOneStep not found");
+        _grantRole(MINTER_ROLE, swapOneStep);
+        _grantRole(BURNER_ROLE, swapOneStep);
+
+        address swapTwoSteps = addressDiscovery.addressDiscovery(keccak256("SwapTwoSteps"));
+        require(swapTwoSteps != address(0), "RealTokenizado: SwapTwoSteps not found");
+        _grantRole(MINTER_ROLE, swapTwoSteps);
+        _grantRole(BURNER_ROLE, swapTwoSteps);
+        _grantRole(FREEZER_ROLE, swapTwoSteps);
     }
 
     function updateReserve(address _newReserve) public {

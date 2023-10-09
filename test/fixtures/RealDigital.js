@@ -2,11 +2,15 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const { parseReal } = require("../../util/parseFormatReal");
 const { REAL_NAME, REAL_SYMBOL } = require("../../util/constants");
+const { deploy: deployAddressDiscovery } = require("./AddressDiscovery");
 
 const MINT_AMOUNT = parseReal("100");
 const FREEZE_AMOUNT = parseReal("50");
 
-const deploy = async () => {
+const deploy = async (addressDiscovery) => {
+  if (!addressDiscovery) {
+    addressDiscovery = (await deployAddressDiscovery()).addressDiscovery;
+  }
   const RealDigital = await ethers.getContractFactory("RealDigital");
   [
     admin,
@@ -22,6 +26,12 @@ const deploy = async () => {
     admin.address
   );
   await real.deployed();
+
+  await addressDiscovery.connect(authority).updateAddress(
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RealDigital")),
+    real.address
+  );
+
   return {
     real,
     admin,

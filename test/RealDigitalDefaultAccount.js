@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { deploy } = require("./fixtures/RealDigitalDefaultAccount");
+const { deploy: deploySwaps } = require("./fixtures/Swaps");
 const { deploy: deployRealTokenizado, deployAddDefaultAccount } = require("./fixtures/RealTokenizado");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { getRoleError } = require("../util/roles");
@@ -11,7 +12,8 @@ describe("RealDigitalDefaultAccount", function () {
   describe("addDefaultAccount", function () {
     it("Should add a new address", async function () {
       const { addressDiscovery, realDigitalDefaultAccount, authority, } = await loadFixture(deploy);
-      const { realTokenizadoParams } = await deployRealTokenizado(addressDiscovery, realDigitalDefaultAccount);
+      const { swapOneStep, swapTwoSteps } = await deploySwaps(addressDiscovery);
+      const { realTokenizadoParams } = await deployRealTokenizado(addressDiscovery, realDigitalDefaultAccount, swapOneStep, swapTwoSteps);
       const randomWallet = ethers.Wallet.createRandom();
       await realDigitalDefaultAccount
         .connect(authority)

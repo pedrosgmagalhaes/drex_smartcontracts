@@ -5,14 +5,7 @@ const {
 } = require("./RealDigitalDefaultAccount");
 
 class RealTokenizadoParams {
-  constructor(
-    name,
-    symbol,
-    participant,
-    cnpj8,
-    reserve,
-    defaultAccount,
-  ) {
+  constructor(name, symbol, participant, cnpj8, reserve, defaultAccount) {
     this.name = name;
     this.symbol = symbol;
     this.participant = participant;
@@ -23,12 +16,21 @@ class RealTokenizadoParams {
 
   getAddressDiscoveryKey() {
     return ethers.utils.keccak256(
-      ethers.utils.solidityPack(["string", "uint256"], ["RealTokenizado", this.cnpj8])
+      ethers.utils.solidityPack(
+        ["string", "uint256"],
+        ["RealTokenizado@", this.cnpj8]
+      )
     );
   }
 }
 
-const deploy = async (addressDiscovery, realDigitalDefaultAccount, realTokenizadoParams) => {
+const deploy = async (
+  addressDiscovery,
+  realDigitalDefaultAccount,
+  swapOneStep,
+  swapTwoSteps,
+  realTokenizadoParams
+) => {
   const [admin, authority, reserve, newReserve, defaultAccount, unauthorized] =
     await ethers.getSigners();
 
@@ -42,6 +44,17 @@ const deploy = async (addressDiscovery, realDigitalDefaultAccount, realTokenizad
     ).realDigitalDefaultAccount;
   }
 
+  if (!swapOneStep || !swapTwoSteps) {
+    // Swaps required here to avoid circular dependency
+    const { deploy: deploySwaps } = require("./Swaps");
+    const {
+      swapOneStep: swapOneStepInstance,
+      swapTwoSteps: swapTwoStepsInstance,
+    } = await deploySwaps(addressDiscovery, realDigitalDefaultAccount);
+    swapOneStep = swapOneStepInstance;
+    swapTwoSteps = swapTwoStepsInstance;
+  }
+
   if (!realTokenizadoParams) {
     realTokenizadoParams = new RealTokenizadoParams(
       "RealTokenizado",
@@ -49,7 +62,7 @@ const deploy = async (addressDiscovery, realDigitalDefaultAccount, realTokenizad
       "ParticipantName",
       12345678,
       reserve,
-      defaultAccount,
+      defaultAccount
     );
   }
 
@@ -88,6 +101,8 @@ const deploy = async (addressDiscovery, realDigitalDefaultAccount, realTokenizad
 const deployAddDefaultAccount = async (
   _addressDiscovery,
   _realDigitalDefaultAccount,
+  _swapOneStep,
+  _swapTwoSteps,
   _realTokenizadoParams
 ) => {
   const {
@@ -99,11 +114,20 @@ const deployAddDefaultAccount = async (
     realTokenizadoParams,
     newReserve,
     unauthorized,
-   } = await deploy(_addressDiscovery, _realDigitalDefaultAccount, _realTokenizadoParams);
+  } = await deploy(
+    _addressDiscovery,
+    _realDigitalDefaultAccount,
+    _swapOneStep,
+    _swapTwoSteps,
+    _realTokenizadoParams
+  );
 
   await realDigitalDefaultAccount
     .connect(authority)
-    .addDefaultAccount(realTokenizadoParams.cnpj8, realTokenizadoParams.defaultAccount.address);
+    .addDefaultAccount(
+      realTokenizadoParams.cnpj8,
+      realTokenizadoParams.defaultAccount.address
+    );
 
   return {
     addressDiscovery,

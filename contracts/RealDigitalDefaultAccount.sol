@@ -38,7 +38,7 @@ contract RealDigitalDefaultAccount is AccessControl {
     }
 
     function getRealTokenizado(uint256 cnpj8) internal view returns (RealDigital) {
-        address _address = addressDiscovery.addressDiscovery(keccak256(abi.encodePacked("RealTokenizado", cnpj8)));
+        address _address = addressDiscovery.addressDiscovery(keccak256(abi.encodePacked("RealTokenizado@", cnpj8)));
         require(_address != address(0), "RealDigitalDefaultAccount: RealTokenizado not found for given cnpj8");
         return RealDigital(_address);
     }
