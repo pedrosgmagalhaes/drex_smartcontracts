@@ -73,7 +73,18 @@ cd realdigital-smartcontracts
 npm install
 ```
 
-Compile the smart contract:
+Copy `.env.example` as `.env` and fill in the parameters:
+- `BESU_PRIVATE_URL` - the RPC URL for the `besuPrivate` network. This will be sent to you via email after you fill in [the application form](https://forms.gle/UvsY9z4EC31aiQfG6)
+- `INFURA_API_KEY` - in case you want to use public testnets for testing, you can input your Infura key to use their RPC
+- `MNEMONIC` - a seed phrase for test accounts used in deployment and other console tasks/scripts. If you deploy the contracts using `scripts/deploy.js` then:
+  - first account will be the deployer and the `admin`
+  - second account will be the `authority`
+  - third account will be the default account for a participant with CJNP8 12345678
+  - fourth account will be the default account for a participant with CJNP8 87654321
+  - all other accounts can be used in scripts and hardhat tasks
+- `ADDRESS_DISCOVERY_ADDR` - the address of the deployed `AddressDiscovery` contract. You can either deploy your own and copy the address from the output of `scripts/deploy.js` or you can obtain our deployed testnet address by filling in [the application form](https://forms.gle/UvsY9z4EC31aiQfG6).
+
+Compile the smart contracts:
 
 ```bash
 npx hardhat compile
@@ -86,6 +97,11 @@ npx hardhat run scripts/deploy.js --network <network-name>
 ```
 
 Replace <network-name> with the desired network (e.g., mainnet, ropsten, rinkeby, etc.).
+
+## Testnet access
+We've set up a Hyperledger Besu node to mimic the target DREX setup and deployed the smart contracts into it. To request access, please fill in [the application form](https://forms.gle/UvsY9z4EC31aiQfG6).
+
+Once we review and accept your application, you'll receive the address for the AddressDiscovery contract and a custom URL to use as `BESU_PRIVATE_URL` and `ADDRESS_DISCOVERY_ADDR` parameters in `.env`
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for more information.
