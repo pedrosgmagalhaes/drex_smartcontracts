@@ -70,7 +70,7 @@ cd realdigital-smartcontracts
 ```
 
 ```bash
-npm install
+yarn install
 ```
 
 Copy `.env.example` as `.env` and fill in the parameters:
