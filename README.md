@@ -107,6 +107,6 @@ Once we review and accept your application, you'll receive the address for the A
 This project is licensed under the MIT License. See the LICENSE file for more information.
 
 ## Credits
-This RealDigital smart contract is developed by Pedro Magalhaes and Formula Chain.
+This RealDigital smart contract is developed by Krzysztof Cywiński, Pedro Magalhaes, and Formula Chain.
 
 Formula Chain is a leading blockchain services provider that specializes in custom blockchain development, smart contract development, and decentralized applications (DApps).
