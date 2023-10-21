@@ -7,7 +7,7 @@ import path from "path";
 config();
 
 // load all tasks
-glob.sync("./tasks/**/*.ts").forEach((file) => require(path.resolve(file)));
+glob.sync("./tasks/**/*.{ts,js}").forEach((file) => require(path.resolve(file)));
 
 const ACCOUNTS_FROM_ENV_MNEMONIC = {
   mnemonic: process.env.MNEMONIC ?? "",
