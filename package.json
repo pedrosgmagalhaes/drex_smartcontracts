@@ -5,7 +5,8 @@
   "author": "Pedro Magalhaes",
   "license": "MIT",
   "scripts": {
-    "test": "npx hardhat test"
+    "test": "npx hardhat test",
+    "compile": "npx hardhat clean && npx hardhat compile"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",

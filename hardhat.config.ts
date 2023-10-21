@@ -1,16 +1,20 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
-require("./tasks/getContractAddress");
-require("./tasks/updateAddress");
-require("./tasks/isEnabled");
-require("./tasks/listContracts");
+import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import { config } from "dotenv";
+import glob from "glob";
+import path from "path";
+
+config();
+
+// load all tasks
+glob.sync("./tasks/**/*.ts").forEach((file) => require(path.resolve(file)));
 
 const ACCOUNTS_FROM_ENV_MNEMONIC = {
   mnemonic: process.env.MNEMONIC ?? "",
-}
+};
 
 /** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+const hardhatConfig: HardhatUserConfig = {
   solidity: {
     version: "0.8.19",
     settings: {
@@ -32,3 +36,5 @@ module.exports = {
     },
   },
 };
+
+export default hardhatConfig;
