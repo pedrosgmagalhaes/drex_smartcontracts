@@ -103,6 +103,16 @@ We've set up a Hyperledger Besu node to mimic the target DREX setup and deployed
 
 Once we review and accept your application, you'll receive the address for the AddressDiscovery contract and a custom URL to use as `BESU_PRIVATE_URL` and `ADDRESS_DISCOVERY_ADDR` parameters in `.env`
 
+## Adding DREX FormulaChain Testnet to Metamask
+
+Open Networks on MetaMask settings page and click the `Add a network` button. Click the `Add a network manually` link at the bottom.
+
+Input the following into the form:
+- Network name: `DREX FormulaChain Testnet`
+- RPC URL: `https://USERNAME:PASS@testnet.formulachain.com` where `USERNAME` and `PASS` are the credentials obtained from FormulaChain after your application is approved
+- Chain ID: `1217`
+- Block explorer: leave empty (block explorer is coming soon)
+
 ## License
 This project is licensed under the MIT License. See the LICENSE file for more information.
 
