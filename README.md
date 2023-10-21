@@ -111,6 +111,7 @@ Input the following into the form:
 - Network name: `DREX FormulaChain Testnet`
 - RPC URL: `https://USERNAME:PASS@testnet.formulachain.com` where `USERNAME` and `PASS` are the credentials obtained from FormulaChain after your application is approved
 - Chain ID: `1217`
+- Currency symbol: `BRL`
 - Block explorer: leave empty (block explorer is coming soon)
 
 ## License
